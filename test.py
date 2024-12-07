@@ -2,12 +2,13 @@ from openai import OpenAI
 from docx import Document
 from dotenv import load_dotenv
 from PyPDF2 import PdfReader
-from fastapi import FastAPI, Form, HTTPException
-from fastapi.responses import HTMLResponse
-from fastapi.templating import Jinja2Templates
+from fastapi import FastAPI, UploadFile, HTTPException, Form
+from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
 import os
 import json
 import mimetypes
+import shutil
 
 # Load environment variables
 load_dotenv()
@@ -15,8 +16,14 @@ load_dotenv()
 # Initialize FastAPI app
 app = FastAPI()
 
-# Templates directory for rendering responses
-templates = Jinja2Templates(directory="templates")
+# Enable CORS for frontend integration
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Change "*" to your frontend URL for production
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 class DocumentAnalyzer:
@@ -193,44 +200,30 @@ class DocumentAnalyzer:
             return {"error": str(e)}
 
 
-@app.get("/", response_class=HTMLResponse)
-async def get_ui():
-    """Render UI for inputting file path"""
-    return HTMLResponse(content="""
-        <!DOCTYPE html>
-        <html>
-        <head><title>Document Analyzer</title></head>
-        <body>
-            <h1>Enter File Path for Analysis</h1>
-            <form action="/analyze" method="post">
-                <label for="file_path">File Path:</label>
-                <input type="text" id="file_path" name="file_path" required>
-                <button type="submit">Analyze</button>
-            </form>
-        </body>
-        </html>
-    """)
+@app.post("/analyze")
+async def analyze(file: UploadFile):
+    """Analyze an uploaded file from the frontend"""
+    try:
+        # Save uploaded file temporarily
+        temp_file_path = f"temp_files/{file.filename}"
+        os.makedirs("temp_files", exist_ok=True)
+        with open(temp_file_path, "wb") as f:
+            shutil.copyfileobj(file.file, f)
+
+        # Initialize analyzer
+        analyzer = DocumentAnalyzer()
+        analysis_result = analyzer.analyze_document(temp_file_path)
+
+        # Delete temporary file
+        os.remove(temp_file_path)
+
+        return JSONResponse(content=analysis_result)
+
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
-@app.post("/analyze", response_class=HTMLResponse)
-async def analyze(file_path: str = Form(...)):
-    """Analyze a document from the provided file path"""
-    analyzer = DocumentAnalyzer()
-
-    if not os.path.isfile(file_path):
-        return HTMLResponse(content=f"<h1>Error</h1><p>File not found: {file_path}</p>", status_code=400)
-
-    analysis_result = analyzer.analyze_document(file_path)
-    if "error" in analysis_result:
-        return HTMLResponse(content=f"<h1>Error</h1><p>{analysis_result['error']}</p>", status_code=500)
-
-    result_html = f"""
-        <h1>Analysis Results for {analysis_result['filename']}</h1>
-        <p><b>Overall Risk Score:</b> {analysis_result['overall_score']}%</p>
-        <ul>
-    """
-    for i, clause in enumerate(analysis_result["clauses"], 1):
-        result_html += f"<li><b>Clause {i}:</b> {clause['clause_text']} <br> Risk: {clause['risk_level']}</li>"
-    result_html += "</ul>"
-
-    return HTMLResponse(content=result_html)
+@app.get("/")
+async def health_check():
+    """Health check endpoint"""
+    return {"status": "Backend is running"}
