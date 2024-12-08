@@ -9,6 +9,8 @@ import os
 import json
 import mimetypes
 from typing import List, Dict, Any, Union
+import re
+
 
 # Load environment variables
 load_dotenv()
@@ -68,39 +70,81 @@ class DocumentAnalyzer:
             raise HTTPException(status_code=400, detail=str(e))
 
     def extract_clauses(self, document_text: str) -> List[str]:
-        """Break document into clauses using AI."""
-        prompt = f"""
-        Break the following contract into separate clauses:
-        {document_text}
-        Return only the separated clauses.
-        """
-        response = self.client.chat.completions.create(
-            model=os.getenv("MODEL_ID", "model-identifier"),
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.5
-        )
-        return response.choices[0].message.content.split('\n\n')
-
+        """Break document into clauses based on common numbering patterns."""
+        # Split by common clause numbering patterns
+        clauses = []
+        
+        # Split by numbered patterns like "1.", "1.1", "(1)", "a.", "A."
+        lines = document_text.split('\n')
+        current_clause = []
+        
+        for line in lines:
+            line = line.strip()
+            if not line:
+                continue
+                
+            # Check for common clause number patterns
+            if (
+                re.match(r'^\d+\.|\(\d+\)|[A-Za-z]\.|\d+\.\d+', line) or 
+                re.match(r'^Section\s+\d+', line, re.IGNORECASE)
+            ):
+                if current_clause:
+                    clauses.append(' '.join(current_clause))
+                    current_clause = []
+                current_clause.append(line)
+            else:
+                current_clause.append(line)
+        
+        # Add the last clause if exists
+        if current_clause:
+            clauses.append(' '.join(current_clause))
+        
+        return clauses if clauses else [document_text]
     def analyze_clause(self, clause_text: str) -> Dict[str, Union[str, Any]]:
         """Analyze a single clause for risks."""
-        prompt = f"""
-        Analyze the following contract clause for risk level and provide:
-        1. Risk level (Low, Medium, High)
-        2. Brief explanation of the risk
-        
-        Clause: {clause_text}
-        """
+        prompt = f"""Analyze the following contract clause for risk level based on these examples:
+
+    HIGH RISK examples:
+    - Unlimited liability clauses
+    - Complete waivers of rights
+    - Automatic renewal with price increases
+    - Unilateral contract changes
+
+    MEDIUM RISK examples:
+    - Late payment penalties
+    - Maintenance responsibilities
+    - Notice requirements
+    - Standard termination clauses
+
+    LOW RISK examples:
+    - Basic contact information
+    - Standard business hours
+    - Regular payment schedules
+    - Standard definitions
+
+    Analyze this clause:
+    {clause_text}
+
+    Provide only:
+    1. Risk level: [Low/Medium/High]
+    2. Brief reason (max 15 word, keywords)"""
+
         response = self.client.chat.completions.create(
             model=os.getenv("MODEL_ID", "model-identifier"),
             messages=[{"role": "user", "content": prompt}],
-            temperature=0.5
+            temperature=0.3,  # Lower temperature for more consistent responses
+            max_tokens=100,   # Limit response length
+            presence_penalty=0.1,
+            frequency_penalty=0.1
         )
+        
         analysis = response.choices[0].message.content
         return {
             "clause_text": clause_text,
             "analysis": analysis,
             "risk_level": self._extract_risk_level(analysis)
         }
+
 
     def _extract_risk_level(self, analysis_text: str) -> str:
         """Extract risk level from analysis text."""
@@ -112,36 +156,63 @@ class DocumentAnalyzer:
         return "Low"
 
     def calculate_risk_score(self, analyzed_clauses: List[Dict[str, Any]]) -> Dict[str, Any]:
-        """Calculate an overall risk score for the document."""
+        """Calculate an optimized risk score focusing on critical factors."""
         if not analyzed_clauses:
             return {"overall_score": 0, "risk_breakdown": {}}
 
-        clause_weights = {
-            "Indemnification": 1.5,
-            "Termination": 1.3,
-            "Confidentiality": 1.2,
-            "Default": 1.0,
+        # Simplified weights focusing on most critical clauses
+        critical_terms = {
+            # High Risk Terms (2.0)
+            "indemnification": 2.0,
+            "liability": 2.0,
+            "warranty": 2.0,
+            "damages": 2.0,
+            "termination": 2.0,
+            
+            # Medium-High Risk Terms (1.5)
+            "confidential": 1.5,
+            "intellectual property": 1.5,
+            "compliance": 1.5,
+            "penalty": 1.5,
+            "default": 1.5,
+            
+            # Medium Risk Terms (1.2)
+            "payment": 1.2,
+            "modification": 1.2,
+            "notice": 1.2,
+            "jurisdiction": 1.2,
+            "renewal": 1.2
         }
+        
         risk_weights = {"High": 3, "Medium": 2, "Low": 1}
-        total_weighted_score = 0
-        total_weight = 0
         risk_breakdown = {"High": 0, "Medium": 0, "Low": 0}
-
+        
+        total_score = 0
+        clause_count = len(analyzed_clauses)
+        
         for clause in analyzed_clauses:
+            # Get base risk score
             risk_level = clause["risk_level"]
-            risk_score = risk_weights.get(risk_level, 1)
-            importance_weight = next(
-                (weight for key, weight in clause_weights.items() if key.lower() in clause["clause_text"].lower()),
-                1.0
-            )
-            total_weighted_score += risk_score * importance_weight
-            total_weight += importance_weight
+            base_score = risk_weights.get(risk_level, 1)
+            
+            # Apply multiplier for critical terms
+            multiplier = 1.0
+            clause_text_lower = clause["clause_text"].lower()
+            for term, weight in critical_terms.items():
+                if term in clause_text_lower:
+                    multiplier = max(multiplier, weight)
+                    break
+            
+            total_score += base_score * multiplier
             risk_breakdown[risk_level] += 1
-
-        overall_score = (total_weighted_score / (total_weight * 3)) * 100
+        
+        # Calculate normalized score (0-100)
+        max_possible_score = clause_count * 3 * 2.0  # maximum risk * maximum multiplier
+        overall_score = (total_score / max_possible_score) * 100 if max_possible_score > 0 else 0
+        
         return {
             "overall_score": round(overall_score, 2),
-            "risk_breakdown": risk_breakdown,
+            "risk_breakdown": risk_breakdown
         }
 
     def analyze_document(self, file_path: str) -> Dict[str, Any]:
