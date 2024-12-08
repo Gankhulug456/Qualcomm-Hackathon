@@ -1,15 +1,15 @@
 import React from "react";
 import FileUploader from "./components/FileUploader";
+import Sidebar from "./components/Sidebar";
+
 
 function App() {
   return (
     <div className="app">
-      <header className="app-header">
-        <h1>Legal Document Analyzer</h1>
-      </header>
-      <main>
-        <FileUploader />
-      </main>
+      <Sidebar class/>
+      <div className="main-content" style={{ padding: '20px' }}>
+      
+      </div>
     </div>
   );
 }
