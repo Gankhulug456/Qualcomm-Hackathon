@@ -29,11 +29,22 @@ class DocumentAnalyzer:
             api_key=os.getenv("API_KEY", "lm-studio")
         )
 
-    def read_docx(self, file_path: str) -> str:
-        """Read content from a DOCX file."""
+    def read_docx(self, file_path):
+        """Read content from a DOCX file"""
         try:
             doc = Document(file_path)
-            return '\n'.join(paragraph.text for paragraph in doc.paragraphs)
+            full_text = []
+            clause_num = 0
+            for para in doc.paragraphs:
+                text = para.text.strip()
+                if text:
+                    # Explicitly mark the start of a new clause when text is all caps, which often signifies a heading
+                    if text.isupper():
+                        full_text.append(f"\n{clause_num}. " + text)
+                        clause_num += 1
+                    else:
+                        full_text.append(text)
+            return ''.join(full_text)
         except Exception as e:
             raise ValueError(f"Error reading DOCX file: {e}")
 
@@ -100,36 +111,40 @@ class DocumentAnalyzer:
         # Add the last clause if exists
         if current_clause:
             clauses.append(' '.join(current_clause))
-        
-        return clauses if clauses else [document_text]
+
+        if clauses:
+            return clauses[1:]
+        else:
+            return [document_text]
+            
     def analyze_clause(self, clause_text: str) -> Dict[str, Union[str, Any]]:
         """Analyze a single clause for risks."""
         prompt = f"""Analyze the following contract clause for risk level based on these examples:
 
-    HIGH RISK examples:
-    - Unlimited liability clauses
-    - Complete waivers of rights
-    - Automatic renewal with price increases
-    - Unilateral contract changes
+        HIGH RISK examples:
+        - Unlimited liability clauses
+        - Complete waivers of rights
+        - Automatic renewal with price increases
+        - Unilateral contract changes
 
-    MEDIUM RISK examples:
-    - Late payment penalties
-    - Maintenance responsibilities
-    - Notice requirements
-    - Standard termination clauses
+        MEDIUM RISK examples:
+        - Late payment penalties
+        - Maintenance responsibilities
+        - Notice requirements
+        - Standard termination clauses
 
-    LOW RISK examples:
-    - Basic contact information
-    - Standard business hours
-    - Regular payment schedules
-    - Standard definitions
+        LOW RISK examples:
+        - Basic contact information
+        - Standard business hours
+        - Regular payment schedules
+        - Standard definitions
 
-    Analyze this clause:
-    {clause_text}
+        Analyze this clause:
+        {clause_text}
 
-    Provide only:
-    1. Risk level: [Low/Medium/High]
-    2. Brief reason (max 30 word for high and medium high levels but for low level ones 0 words)"""
+        Provide only:
+        1. Risk level: [Low/Medium/High]
+        2. Brief reason (max 30 word for high and medium high levels but for low level ones 0 words)"""
 
         response = self.client.chat.completions.create(
             model=os.getenv("MODEL_ID", "model-identifier"),
@@ -146,7 +161,45 @@ class DocumentAnalyzer:
             "analysis": analysis,
             "risk_level": self._extract_risk_level(analysis)
         }
+    
+    def generate_doc_summary(self, document_text):
+        """Summarize the document as a whole."""
+        prompt = f"""Summarize and Analyze the following contract for risk level based on these examples:
 
+        HIGH RISK examples:
+        - Unlimited liability clauses
+        - Complete waivers of rights
+        - Automatic renewal with price increases
+        - Unilateral contract changes
+
+        MEDIUM RISK examples:
+        - Late payment penalties
+        - Maintenance responsibilities
+        - Notice requirements
+        - Standard termination clauses
+
+        LOW RISK examples:
+        - Basic contact information
+        - Standard business hours
+        - Regular payment schedules
+        - Standard definitions
+
+        Analyze this document:
+        {document_text}
+
+        Provide a few-sentence summary of the document and draw conclusions, with examples, of which party the document benefits."""
+
+        response = self.client.chat.completions.create(
+            model=os.getenv("MODEL_ID", "model-identifier"),
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.3,  # Lower temperature for more consistent responses
+            max_tokens=300,   # Limit response length
+            presence_penalty=0.1,
+            frequency_penalty=0.1
+        )
+        
+        summary = response.choices[0].message.content
+        return summary
 
     def _extract_risk_level(self, analysis_text: str) -> str:
         """Extract risk level from analysis text."""
@@ -223,13 +276,14 @@ class DocumentAnalyzer:
         clauses = self.extract_clauses(document_text)
         analyzed_clauses = [self.analyze_clause(clause) for clause in clauses]
         risk_data = self.calculate_risk_score(analyzed_clauses)
-        return {
+        summary = self.generate_doc_summary(document_text)
+        analysis_result = {
             "filename": os.path.basename(file_path),
             "clauses": analyzed_clauses,
             "overall_score": risk_data["overall_score"],
             "risk_breakdown": risk_data["risk_breakdown"],
         }
-
+        return analysis_result, summary
 
 @app.get("/", response_class=HTMLResponse)
 async def get_ui() -> HTMLResponse:
@@ -260,6 +314,7 @@ async def get_ui() -> HTMLResponse:
         </body>
         </html>
     """)
+
 @app.post("/analyze", response_class=HTMLResponse)
 async def analyze(file: UploadFile = File(...)) -> HTMLResponse:
     """Analyze an uploaded document."""
@@ -288,7 +343,7 @@ async def analyze(file: UploadFile = File(...)) -> HTMLResponse:
             temp_file.write(content)
             temp_path = temp_file.name
 
-        analysis_result = analyzer.analyze_document(temp_path)
+        analysis_result, summary = analyzer.analyze_document(temp_path)
         
         # Clean up the temporary file
         os.unlink(temp_path)
@@ -301,6 +356,7 @@ async def analyze(file: UploadFile = File(...)) -> HTMLResponse:
         for i, clause in enumerate(analysis_result["clauses"], 1):
             result_html += f"<li><b>Clause {i}:</b> {clause['clause_text']} <br> Risk: {clause['risk_level']}</li>"
         
+        result_html += f'<li><b>Summary:</b> {summary}</li'
         result_html += "</ul>"
         return HTMLResponse(content=result_html)
 
