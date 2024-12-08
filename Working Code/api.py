@@ -76,7 +76,7 @@ class DocumentAnalyzer:
         response = self.client.chat.completions.create(
             model=os.getenv("MODEL_ID", "model-identifier"),
             messages=[{"role": "user", "content": prompt}],
-            temperature=0.5
+            temperature=0.7
         )
         return response.choices[0].message.content.split('\n\n')
 
@@ -92,7 +92,7 @@ class DocumentAnalyzer:
         response = self.client.chat.completions.create(
             model=os.getenv("MODEL_ID", "model-identifier"),
             messages=[{"role": "user", "content": prompt}],
-            temperature=0.5
+            temperature=0.7
         )
         analysis = response.choices[0].message.content
         return {

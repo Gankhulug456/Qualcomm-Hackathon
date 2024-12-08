@@ -1,0 +1,22 @@
+{
+  "name": "qAndA",
+  "version": "0.0.0",
+  "description": "",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "type": "module",
+  "scripts": {
+    "start": "tsc && node dist/index.js",
+    "build": "tsc"
+  },
+  "author": "Your Name",
+  "license": "UNLICENSED",
+  "dependencies": {
+    "@lmstudio/sdk": "^0.4.0"
+  },
+  "gitHead": "4c289faeaed4ba13fdf6bf59de95bcabaf8a71ae",
+  "devDependencies": {
+    "@types/node": "^22.10.1",
+    "typescript": "^5.7.2"
+  }
+}
