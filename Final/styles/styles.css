@@ -1,0 +1,255 @@
+body {
+    margin: 0;
+    height: 100vh;
+    display: flex;
+    font-family: Roboto, sans-serif;
+    background-color: #f4f4f9;
+}
+
+.background {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: radial-gradient(circle at top center, #9fe5ff, #feadb0, #e1b0ff, #a6f5ff, #ffbc98, #a5ffd2, #5fe2ff);
+    background-size: 400% 400%;
+    animation: moveGradient 30s ease infinite;
+    opacity: 0.2;
+    z-index: -1;
+}
+
+.main-content {
+    overflow: auto;
+}
+
+@keyframes moveGradient {
+    0% { background-position: 0% 50%; }
+    25% { background-position: 50% 0%; }
+    50% { background-position: 100% 50%; }
+    75% { background-position: 50% 100%; }
+    100% { background-position: 0% 50%; }
+}
+
+.container {
+    display: flex;
+    width: 100%;
+    justify-content: center; /* Center the container */
+}
+.nav-bar {
+    margin: 30px;
+    width: 80px; /* Adjust the width of the navbar */
+    background-color: white;
+    padding: 20px;
+    position: fixed; /* Keeps the navbar fixed in place */
+    top: 0;
+    border-radius: 20px;
+    left: 0; /* Position it to the left */
+    display: flex;
+    flex-direction: column;
+    align-items: start;
+    justify-content: flex-start;
+    height: auto; /* Allow the height to adjust based on the content */
+}
+
+.nav-item {
+    margin: 20px 0;
+    display: flex;
+    align-items: center; /* Align icons and text vertically */
+    cursor: pointer;
+}
+
+.nav-item svg {
+    width: 20px;
+    height: 20px;
+    margin-right: 10px;
+}
+
+
+.main-content {
+    margin-left: 120px;
+    margin-top: 120px; /* Adjusted for navbar */
+    padding: 20px;
+    width: calc(100% - 120px);
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start; /* Align items from top */
+    align-items: center;
+    text-align: start;
+    overflow: auto;
+    min-height: calc(100vh - 120px); /* Ensure the container is tall enough to fit content */
+}
+
+
+h1 {
+    color: #333;
+    text-align: start;
+    margin-bottom: 20px;
+    font-size: 40px;
+}
+
+.prompt-boxes {
+    display: flex;
+    justify-content: center; /* Center the boxes horizontally */
+    align-items: center; /* Center the items vertically within the flex container */
+    width: 70%;
+    margin: 30px;
+}
+
+.prompt-box {
+    background-color: transparent;
+    border-color: rgba(122, 122, 122, 0.8);
+    border-style: solid;
+    border-radius: 30px;
+    text-align: center;
+    flex-basis: 22%;
+    border-width: 2px;
+    opacity: 0.8;
+    height: 130px;
+    cursor: pointer;
+    margin: 50px;
+    display: flex   ; /* Enable flex on individual boxes */
+    justify-content: center; /* Center the content horizontally inside the box */
+    align-items: center; /* Center the content vertically inside the box */
+}
+
+.input-area {
+    display: flex;
+    flex-direction: row;
+    align-items: center; /* Items will be aligned in the center vertically */
+    width: 80%; 
+    height: 100px;
+    margin-top: 20px;
+}
+
+textarea {
+    width: 50%;
+    height: 100%; /* Set a fixed height to match file input */
+    padding: 12px;
+    border: 2px solid #ccc;
+    border-radius: 15px;
+    font-size: 16px;
+    font-family: roboto;
+    resize: none; /* Prevent resizing */
+    box-sizing: border-box; /* Ensure padding doesn't affect width */
+    margin-bottom: 0; /* Remove margin-bottom */
+    outline: none;
+    margin-right: 15px; /* Space between textarea and file upload container */
+    background-color: rgba(255, 255, 255, 0.3); /* Transparent white background */
+    backdrop-filter: blur(10px); /* Blur effect behind the textarea */
+}
+
+
+/* Hide the default file input button completely */
+/* Hide the default file input button completely */
+.file-upload-container input[type="file"] {
+    display: none; /* Hide the file input */
+}
+
+/* Style the clickable area (rectangle) to match the default file input size */
+.file-upload-container {
+    display: flex; /* Use flexbox for centering the content */
+    align-items: center; /* Vertically center content */
+    justify-content: center; /* Horizontally center content */
+    width: 50%;
+    height: 100%;  /* Adjust the height to match the default file input button height */
+    border: 2px dashed #ccc;
+    border-radius: 15px;
+    background-color: #f7f7f7;
+    cursor: pointer;
+    margin: 0;
+}
+
+.file-upload-container:hover {
+    background-color: #e0e0e0;
+}
+
+/* Style the file name text */
+#file-name {
+    font-size: 14px;
+    color: #555;
+    margin-left: 8px; /* Add some space between the icon and the text */
+}
+
+/* Optional: Style the icon */
+.file-upload-container svg {
+    width: 30px; /* Adjust the size of the icon */
+    height: 30px;
+}
+
+
+.result-box {
+    width: 80%;
+    background-color: #ffffff;
+    border: 2px solid #ccc;
+    padding: 20px;
+    border-radius: 15px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    margin-top: 30px;
+    text-align: left;
+    display: none;
+    min-height: 200px; /* Ensure minimum height */
+    max-height: 80vh; /* Limit the maximum height */
+    overflow-y: auto; /* Allow scrolling if content exceeds max height */
+}
+
+
+#loading-indicator {
+    display: block;
+    font-size: 45px;
+    color: #000000;
+    margin-top: 20px;
+}
+
+@keyframes dots {
+    0% {
+      content: '';
+    }
+    33% {
+      content: '.';
+    }
+    66% {
+      content: '..';
+    }
+    100% {
+      content: '...';
+    }
+  }
+  
+  #processing-text {
+    font-size: 50px;
+    font-weight: bold;
+    text-align: start;
+    background: linear-gradient(45deg, #ff6f61, #6a5acd, #32cd32);
+    background-size: 200% 200%;
+    color: transparent;
+    -webkit-background-clip: text;  /* For text color */
+    background-clip: text;  /* For text color */
+    animation: gradientAnimation 3s ease infinite;
+    position: absolute;
+    top: 20%; /* Move the text up by 20% from the top */
+    left: 50%;
+    transform: translateX(-50%); /* Center the text horizontally */
+}
+
+  
+  #processing-text::after {
+    content: 'Processing';
+    animation: dots 1.5s steps(4, end) infinite;
+  }
+
+  @keyframes gradientAnimation {
+    0% {
+      background-position: 0% 50%;
+    }
+    50% {
+      background-position: 100% 50%;
+    }
+    100% {
+      background-position: 0% 50%;
+    }
+  }
+  
+
+  
+  
