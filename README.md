@@ -14,8 +14,9 @@ A secure, offline tool that automates legal document analysis, including contrac
 ### Requirements
 -LM Studio
 - Python 3.x
-- Install required dependencies using pip:
-
+- Install required dependencies using pip
+  -In requirements.txt
+  
 ## Running the Application
 1. In the terminal, run the app using:
    uvicorn api:app --reload
