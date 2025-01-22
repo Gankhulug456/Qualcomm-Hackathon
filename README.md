@@ -13,7 +13,7 @@ A secure, offline tool that automates legal document analysis, including contrac
 
 ### Requirements
 -LM Studio
-- Python 3.x
+- Python 3.11+
 - Install required dependencies using pip
   -In requirements.txt
   
