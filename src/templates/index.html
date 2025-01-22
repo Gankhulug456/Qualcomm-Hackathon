@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Legal Document Analyzer</title>
+    <link rel="stylesheet" href="/styles/styles.css" />
+  </head>
+  <body>
+    <div class="background"></div>
+    <div class="container">
+      <div class="main-content">
+        <div id="result-box" class="result-box" style="display: none"></div>
+        <div id="processing-text" style="display: none">Processing</div>
+
+        <h1 class="greeting">
+          Hi there,<br />
+          How can I assist you with your legal documents today?
+        </h1>
+        <div class="prompt-boxes">
+          <div class="prompt-box" data-action="analyze_contract">
+            Analyze Contract
+          </div>
+          <div class="prompt-box" data-action="summarize_document">
+            Summarize Document
+          </div>
+          <div class="prompt-box" data-action="identify_risks">
+            Identify Risks
+          </div>
+          <div class="prompt-box" data-action="extract_key_information">
+            Extract Key Information
+          </div>
+        </div>
+
+        <div id="input" class="input-area">
+          <textarea
+            id="user-text"
+            placeholder="Enter your text here..."
+          ></textarea>
+          <div class="file-upload-container">
+            <input
+              type="file"
+              id="file"
+              name="file"
+              accept=".pdf,.txt,.doc,.docx"
+              required
+            />
+
+            <svg
+              width="48"
+              height="48"
+              viewBox="0 0 48 48"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M28 4H12C10.9391 4 9.92172 4.42143 9.17157 5.17157C8.42143 5.92172 8 6.93913 8 8V40C8 41.0609 8.42143 42.0783 9.17157 42.8284C9.92172 43.5786 10.9391 44 12 44H36C37.0609 44 38.0783 43.5786 38.8284 42.8284C39.5786 42.0783 40 41.0609 40 40V16M28 4L40 16M28 4V16H40M32 26H16M32 34H16M20 18H16"
+                stroke="#1E1E1E"
+                stroke-width="4"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              />
+            </svg>
+
+            <span id="file-name">No file chosen</span>
+          </div>
+        </div>
+
+        <div id="loading-indicator" style="display: none">Analyzing...</div>
+        <div id="result"></div>
+      </div>
+    </div>
+  </body>
+  <script>
+    document.addEventListener("DOMContentLoaded", function () {
+      const fileUploadContainer = document.querySelector(
+        ".file-upload-container"
+      );
+      const fileInput = document.getElementById("file");
+      const fileNameLabel = document.getElementById("file-name");
+
+      fileUploadContainer.addEventListener("click", function () {
+        fileInput.click();
+      });
+
+      fileInput.addEventListener("change", function () {
+        var fileName = this.files[0] ? this.files[0].name : "No file chosen";
+        fileNameLabel.textContent = fileName;
+        const processingText = document.getElementById("processing-text");
+        const resultBox = document.getElementById("result-box");
+        const inputElement = document.getElementById("input");
+
+        processingText.style.display = "block";
+        resultBox.style.display = "none";
+        inputElement.style.display = "none";
+        fileUploadContainer.classList.add("processing");
+        processingText.style.opacity = 0;
+        setTimeout(() => {
+          processingText.style.transition = "opacity 0.5s";
+          processingText.style.opacity = 1;
+        }, 10);
+
+        document.querySelector(".greeting").style.display = "none";
+        document.querySelector(".prompt-boxes").style.display = "none";
+
+        var formData = new FormData();
+        formData.append("file", this.files[0]);
+
+        fetch("/analyze", {
+          method: "POST",
+          body: formData,
+        })
+          .then((response) => response.text())
+          .then((data) => {
+            processingText.style.transition = "opacity 1s";
+            processingText.style.opacity = 0;
+            setTimeout(() => {
+              resultBox.style.display = "block";
+              resultBox.style.opacity = 0;
+              resultBox.innerHTML = data;
+              setTimeout(() => {
+                resultBox.style.transition = "opacity 1s";
+                resultBox.style.opacity = 1;
+              }, 10);
+            }, 500);
+            fileUploadContainer.classList.remove("processing");
+          })
+          .catch((error) => {
+            processingText.style.display = "none";
+            fileUploadContainer.classList.remove("processing");
+            console.error("Error:", error);
+            alert("An error occurred while analyzing the document.");
+          });
+      });
+    });
+    document.querySelectorAll(".prompt-box").forEach((box) => {
+      box.addEventListener("click", async () => {
+        const action = box.getAttribute("data-action");
+
+        try {
+          const response = await fetch(`/api/prompt`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ action }),
+          });
+
+          if (response.ok) {
+            const data = await response.json();
+            alert(data.response);
+          } else {
+            alert(`Error: ${response.status}`);
+          }
+        } catch (error) {
+          console.error("Error:", error);
+        }
+      });
+    });
+  </script>
+</html>
